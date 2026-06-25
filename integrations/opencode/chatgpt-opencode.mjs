@@ -1432,7 +1432,7 @@ function serverCommand({ apiKey, accounts, strategy, agentMode, modelFallback, c
   const chatModeFlag = chatMode === "normal" ? " --normal-chat" : " --temporary-chat";
   const imageOutputFlag = imageOutputDir ? ` --image-output-dir ${shellQuote(imageOutputDir)}` : "";
   const researchOutputFlag = researchOutputDir ? ` --research-output-dir ${shellQuote(researchOutputDir)}` : "";
-  return `CHATGPT_API_KEY=${shellQuote(apiKey)} python3 -m chatgpt_api.cli serve ${accountFlags} --port ${shellQuote(normalizePort(port))} --agent-mode ${shellQuote(agentMode)}${fallbackFlag}${chatModeFlag}${imageOutputFlag}${researchOutputFlag}`;
+  return `CHATGPT_API_KEY=${shellQuote(apiKey)} python3 -m chatgpt_api serve ${accountFlags} --port ${shellQuote(normalizePort(port))} --agent-mode ${shellQuote(agentMode)}${fallbackFlag}${chatModeFlag}${imageOutputFlag}${researchOutputFlag}`;
 }
 
 function timestampSlug() {

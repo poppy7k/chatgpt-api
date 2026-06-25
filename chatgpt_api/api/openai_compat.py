@@ -199,7 +199,7 @@ CONCURRENCY_PLAN_DEFAULTS = {
     "chat": {"free": 1, "go": 2, "plus": 3, "pro": 4},
     "upload": {"free": 1, "go": 1, "plus": 1, "pro": 1},
     "image": {"free": 1, "go": 1, "plus": 2, "pro": 3},
-    "research": {"free": 0, "go": 0, "plus": 2, "pro": 2},
+    "research": {"free": 1, "go": 1, "plus": 2, "pro": 2},
 }
 CONCURRENCY_WARNINGS = [
     "These limits are local bridge throttles, not official ChatGPT quotas.",
@@ -3584,6 +3584,13 @@ def _provider_status_code(message: str) -> int | None:
 
 def _classify_provider_error(message: str, provider_status: int | None) -> tuple[str, str, int, str]:
     normalized = message.lower()
+    if "account capture" in normalized and "not configured" in normalized:
+        return (
+            "chatgpt_missing_account_capture",
+            "invalid_request_error",
+            400,
+            "Add or update a ChatGPT account capture from the Bridge Console Accounts page or CLI before making provider calls.",
+        )
     if "cloudflare browser challenge" in normalized:
         return (
             "chatgpt_browser_challenge",
@@ -3745,6 +3752,12 @@ def _provider_for_account(
 ) -> ChatGPTProvider:
     resolved_account = account or config.account
     capture_path = resolve_account_capture_path(resolved_account, config.accounts_dir)
+    if not capture_path.exists():
+        raise ProviderError(
+            f"ChatGPT account capture for '{resolved_account}' is not configured. "
+            "Add one from the Bridge Console Accounts page or run "
+            "`python3 -m chatgpt_api admin account add --paste --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key`."
+        )
     capture = CapturedRequest.from_file(capture_path)
     auth = ChatGPTAuthConfig.from_captured_request(capture)
     provider = ChatGPTProvider(
@@ -4076,11 +4089,13 @@ def _models_for_config(config: OpenAICompatConfig) -> list[dict[str, str]]:
 def _models_for_account(config: OpenAICompatConfig, account: str | None = None) -> list[dict[str, str]]:
     selected_account = account or config.account
     capture_path = resolve_account_capture_path(selected_account, config.accounts_dir)
+    models: list[dict[str, str]] = [{"id": "auto", "name": "ChatGPT Auto"}]
+    if not capture_path.exists():
+        return _models_with_agent_modes(models)
     capture = CapturedRequest.from_file(capture_path)
     settings_path = resolve_account_settings_path(selected_account, config.accounts_dir)
     settings = load_settings_file(str(settings_path)) if settings_path.exists() else {}
     capabilities = infer_account_capabilities(detect_account_info(capture, settings))
-    models: list[dict[str, str]] = [{"id": "auto", "name": "ChatGPT Auto"}]
 
     if "gpt-5-5" in capabilities["supported_models"]:
         models.append({"id": "gpt-5-5", "name": "GPT-5.5"})

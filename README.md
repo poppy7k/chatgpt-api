@@ -30,6 +30,75 @@ The goal is not to pretend this is the official OpenAI API. The goal is a useful
 local bridge with clear contracts, good operational tooling, and examples that
 show what can be built with it.
 
+## Unofficial Status, Risk, And Why This Exists
+
+This project is **not official** and is not affiliated with OpenAI. It drives
+ChatGPT Web sessions from copied browser request captures and exposes a local
+developer API around that behavior. That puts it in a gray area: it may break
+when ChatGPT Web changes, it may be blocked by anti-abuse systems, and account
+access can never be guaranteed.
+
+Use it at your own risk:
+
+- Do not run this as a public hosted proxy.
+- Do not publish real account captures, cookies, or bearer tokens.
+- Prefer a dedicated test account instead of a personal primary account.
+- Keep concurrency low, especially for image generation, uploads, and research.
+- Expect hidden burst limits even when the UI shows a large daily quota.
+
+For local single-user workflows, the practical risk may be lower than operating
+a public scraping service, but nobody can promise that an account will never be
+restricted. The safest mental model is: this is an experimental local bridge,
+not a supported product contract.
+
+The reason it is still useful is simple: ChatGPT subscriptions and OpenAI API
+billing are separate. If you already pay for a high ChatGPT plan such as Pro
+(commonly around `$100/month` in supported regions; verify your local plan
+price), the web product can include substantial image generation and Deep
+Research capacity. Official API image generation is billed separately and can
+become expensive at high quality. Verify current pricing before budgeting; as
+a reference example for 1024x1024 image generation:
+
+| Quality | Reference per-image API cost |
+| --- | ---: |
+| low | `$0.006` |
+| medium | `$0.053` |
+| high | `$0.211` |
+
+This bridge lets local tools use capacity you may already have in ChatGPT Web:
+image generation, image editing/compositing, OCR/vision, and Deep Research.
+That can also avoid burning Codex usage on tasks Codex is not best suited for:
+for example, asking ChatGPT Web Deep Research to produce a markdown report,
+then letting Codex read that local file and continue the coding work.
+
+It is especially useful for smaller web products, internal tools, prototypes,
+and demos where you want to add AI chat, image generation, OCR, or research
+before committing to official API spend. A character/roleplay game is included
+in this repository to show that the bridge can drive a real user-facing app,
+not just a terminal demo. If you later turn the idea into a serious hosted
+product, move to a proper production architecture and budget for official APIs
+or a hardened provider layer.
+
+Plan support is intentionally conservative:
+
+| Plan | Current project expectation | Personally tested in this repo |
+| --- | --- | --- |
+| Free | Works for chat plus limited feature buckets exposed by ChatGPT Web. Current live checks include vision/OCR, multi-image upload, and image edit/composite when quota is available. Multiple free accounts can increase local routing capacity, subject to ChatGPT limits. | yes |
+| Go | Expected to work through `auto` and plan-limited feature buckets. | not yet |
+| Plus | Expected to work with higher quota than Free/Go. | not yet |
+| Pro | Works with higher image/research capacity and higher recommended local concurrency. | yes |
+
+The local router can combine several accounts, including free accounts, so chat
+capacity can be much higher than a single account. This does not mean the
+service is truly unlimited: ChatGPT Web can still apply hidden account, burst,
+browser-proof, or abuse limits at any time.
+
+In current testing, a Pro account can report roughly 1,000 image generations
+remaining for the day, but that is not the same thing as unlimited burst
+capacity. Too many concurrent image jobs can still trigger short hidden
+cooldowns. The default local throttle keeps Pro image concurrency at `3` and
+research concurrency at `2` for that reason.
+
 ## Built Solo In 30 Hours
 
 This project was built by one person in roughly 30 hours as a practical AI
@@ -82,12 +151,19 @@ bridge-specific by design.
 | Bridge API | `http://127.0.0.1:8000/v1` | Local app-facing API for chat, image, vision, research, files, and admin routes. |
 | Bridge Console | `http://127.0.0.1:8080` | Operator UI for health, accounts, capacity, docs, test lab, storage, and opencode setup. |
 | Character Game | `http://127.0.0.1:3000` | Full-stack SvelteKit roleplay game that consumes the bridge as a backend. |
-| CLI | `chatgpt-api` | Interactive and scriptable control plane for server launch, account management, tests, and artifacts. |
+| CLI | `python3 -m chatgpt_api` or `chatgpt-api` | Interactive and scriptable control plane for server launch, account management, tests, and artifacts. |
 | opencode | `bun integrations/opencode/chatgpt-opencode.mjs` | Consumer setup that points opencode at the local bridge. |
 
 ## Quick Start With Docker
 
-Docker is the fastest way to see the whole system.
+Docker is the fastest way to see the whole system. The containers can start
+without any ChatGPT account capture, but real chat, image, OCR, and research
+requests need at least one saved account.
+
+| Step | What works | What still needs an account capture |
+| --- | --- | --- |
+| Start Docker with no captures | API health, Console, docs, storage view, model aliases, Character Game shell | Real ChatGPT chat/image/research calls |
+| Add one account capture | Chat, streaming, image generation, OCR/vision, research according to that account's plan and limits | More capacity/failover needs more accounts |
 
 ```sh
 cp .env.example .env
@@ -119,32 +195,56 @@ curl 'http://127.0.0.1:8000/v1/models' \
   -H 'Authorization: Bearer local-dev-key'
 ```
 
-The stack can boot without account captures, but real ChatGPT calls need at
-least one saved account. Add accounts through the console or CLI.
+Add your first account from the Console:
+
+1. Open `http://127.0.0.1:8080`.
+2. Go to Accounts.
+3. Choose Add account.
+4. Paste the copied ChatGPT request headers plus payload/request data.
+5. Save. The Console inspects required fields first and then live-verifies the
+   account before routing it.
+
+Or add it from the CLI while Docker is running:
+
+```sh
+python3 -m chatgpt_api admin account add --paste \
+  --base-url http://127.0.0.1:8000/v1 \
+  --api-key local-dev-key
+```
+
+After the account is saved, verify capacity:
+
+```sh
+python3 -m chatgpt_api admin capacity \
+  --base-url http://127.0.0.1:8000/v1 \
+  --api-key local-dev-key
+```
 
 ## Quick Start Without Docker
+
+Use the module command first. It works even when your Python scripts directory
+is not on `PATH`.
 
 ```sh
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e '.[dev]'
-chatgpt-api doctor
-chatgpt-api server start --interactive
+python3 -m pip install -e '.[dev]'
+python3 -m chatgpt_api doctor
+python3 -m chatgpt_api menu
+python3 -m chatgpt_api server start --interactive
 ```
 
-If `chatgpt-api` is not found after install, Python installed the console
-script outside your shell `PATH`. Use the module form, which works from the
-repo after install:
+If `chatgpt-api` works on your machine, it is only a shorter alias:
 
 ```sh
-python3 -m chatgpt_api doctor
-python3 -m chatgpt_api server start --interactive
+chatgpt-api doctor
+chatgpt-api menu
 ```
 
 Or use explicit flags:
 
 ```sh
-chatgpt-api server start \
+python3 -m chatgpt_api server start \
   --accounts free-main,pro-main \
   --account-strategy failover \
   --api-key local-dev-key \
@@ -156,7 +256,7 @@ chatgpt-api server start \
 For LAN use:
 
 ```sh
-chatgpt-api server start \
+python3 -m chatgpt_api server start \
   --accounts free-main,pro-main \
   --account-strategy failover \
   --api-key local-dev-key \
@@ -230,7 +330,7 @@ http://127.0.0.1:8080/#accounts
 Through the CLI:
 
 ```sh
-chatgpt-api admin account add \
+python3 -m chatgpt_api admin account add \
   --account pro-main \
   --capture-file ./chatgpt-request.txt \
   --base-url http://127.0.0.1:8000/v1 \
@@ -240,7 +340,7 @@ chatgpt-api admin account add \
 Update an expired capture:
 
 ```sh
-chatgpt-api admin account update \
+python3 -m chatgpt_api admin account update \
   --account pro-main \
   --capture-file ./chatgpt-request.txt \
   --base-url http://127.0.0.1:8000/v1 \
@@ -250,7 +350,7 @@ chatgpt-api admin account update \
 Paste interactively instead of using a file:
 
 ```sh
-chatgpt-api admin account add --paste \
+python3 -m chatgpt_api admin account add --paste \
   --base-url http://127.0.0.1:8000/v1 \
   --api-key local-dev-key
 ```
@@ -264,7 +364,7 @@ END_CAPTURE
 Verify accounts:
 
 ```sh
-chatgpt-api admin account verify \
+python3 -m chatgpt_api admin account verify \
   --account all \
   --base-url http://127.0.0.1:8000/v1 \
   --api-key local-dev-key
@@ -273,7 +373,7 @@ chatgpt-api admin account verify \
 Delete an account capture and settings:
 
 ```sh
-chatgpt-api admin account delete \
+python3 -m chatgpt_api admin account delete \
   --account old-free-main \
   --base-url http://127.0.0.1:8000/v1 \
   --api-key local-dev-key
@@ -604,7 +704,7 @@ Recommended local concurrency defaults:
 | chat | 1 | 2 | 3 | 4 |
 | upload | 1 | 1 | 1 | 1 |
 | image | 1 | 1 | 2 | 3 |
-| research | 0 | 0 | 2 | 2 |
+| research | 1 | 1 | 2 | 2 |
 
 Two Pro accounts with image concurrency `3` each can run up to six local image
 jobs. That is only a local throttle. ChatGPT Web can still apply hidden burst
@@ -653,7 +753,7 @@ For LAN clients, start the API with `--host 0.0.0.0` and set
 `--public-base-url` to the LAN address:
 
 ```sh
-chatgpt-api server start \
+python3 -m chatgpt_api server start \
   --accounts free-main,pro-main \
   --host 0.0.0.0 \
   --port 8000 \
@@ -831,44 +931,43 @@ Full guide: [integrations/opencode/README.md](integrations/opencode/README.md)
 
 ## CLI Cheat Sheet
 
-Every `chatgpt-api ...` command can also be run as
-`python3 -m chatgpt_api ...` if your Python scripts directory is not on
-`PATH`.
+Use `python3 -m chatgpt_api ...` in docs and copy-paste commands. Use
+`chatgpt-api ...` only if your shell can already find the installed script.
 
 Interactive menu:
 
 ```sh
-chatgpt-api
-chatgpt-api menu
+python3 -m chatgpt_api
+python3 -m chatgpt_api menu
 ```
 
 Doctor:
 
 ```sh
-chatgpt-api doctor
-chatgpt-api doctor --json
+python3 -m chatgpt_api doctor
+python3 -m chatgpt_api doctor --json
 ```
 
 Print launch presets:
 
 ```sh
-chatgpt-api server command --preset local
-chatgpt-api server command --preset lan
-chatgpt-api server command --preset docker
-chatgpt-api admin presets
+python3 -m chatgpt_api server command --preset local
+python3 -m chatgpt_api server command --preset lan
+python3 -m chatgpt_api server command --preset docker
+python3 -m chatgpt_api admin presets
 ```
 
 Start the API:
 
 ```sh
-chatgpt-api server start --interactive
-chatgpt-api server start --accounts free-main,pro-main --api-key local-dev-key
+python3 -m chatgpt_api server start --interactive
+python3 -m chatgpt_api server start --accounts free-main,pro-main --api-key local-dev-key
 ```
 
 Direct provider chat:
 
 ```sh
-chatgpt-api chat \
+python3 -m chatgpt_api chat \
   --account pro-main \
   --message "Reply with exactly: direct chat ok"
 ```
@@ -876,10 +975,20 @@ chatgpt-api chat \
 Direct image:
 
 ```sh
-chatgpt-api image \
+python3 -m chatgpt_api image \
   --account pro-main \
   --prompt "small blue app icon, no text" \
   --out ./icon.png
+```
+
+Direct OCR:
+
+```sh
+python3 -m chatgpt_api vision \
+  --account pro-main \
+  --mode ocr \
+  --input-image ./favicon.png \
+  --prompt "Extract visible letters only"
 ```
 
 ## Troubleshooting
@@ -900,14 +1009,16 @@ python3 -m chatgpt_api server start --interactive
 
 Or add the scripts directory printed by `pip` to your shell `PATH`.
 
-Direct OCR:
+### Docker starts, but chat/image does not work
+
+That is expected when no account capture exists yet. Docker can boot the API,
+Console, docs, storage, and game shell without accounts. Real ChatGPT calls
+need at least one capture added from the Console Accounts page or the CLI:
 
 ```sh
-chatgpt-api vision \
-  --account pro-main \
-  --mode ocr \
-  --input-image ./favicon.png \
-  --prompt "Extract visible letters only"
+python3 -m chatgpt_api admin account add --paste \
+  --base-url http://127.0.0.1:8000/v1 \
+  --api-key local-dev-key
 ```
 
 Full CLI guide: [docs/CLI.md](docs/CLI.md)

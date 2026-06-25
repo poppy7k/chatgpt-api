@@ -160,7 +160,7 @@ def build_parser() -> argparse.ArgumentParser:
     admin_limits.add_argument("--chat", default=None, help="Example: free=1,go=2,plus=3,pro=4,work-pro=2")
     admin_limits.add_argument("--upload", default=None, help="Example: free=1,go=1,plus=1,pro=1")
     admin_limits.add_argument("--image", default=None, help="Example: free=1,go=1,plus=2,pro=3")
-    admin_limits.add_argument("--research", default=None, help="Example: free=0,go=0,plus=2,pro=2")
+    admin_limits.add_argument("--research", default=None, help="Example: free=1,go=1,plus=2,pro=2")
     admin_limits.add_argument("--json", action="store_true")
     admin_limits.set_defaults(func=cmd_admin_set_limits)
 
@@ -474,7 +474,7 @@ def _add_serve_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument(
         "--research-concurrency",
         default=os.environ.get("CHATGPT_RESEARCH_CONCURRENCY"),
-        help="Local Deep Research throttle by plan/account alias, for example free=0,go=0,plus=2,pro=2 or pro-main=2.",
+        help="Local Deep Research throttle by plan/account alias, for example free=1,go=1,plus=2,pro=2 or pro-main=2.",
     )
     parser.add_argument(
         "--agent-mode",
@@ -565,8 +565,8 @@ async def cmd_doctor(args: argparse.Namespace) -> int:
         "accounts_dir": str(accounts_dir) if accounts_dir else None,
         "checks": checks,
         "next": {
-            "start_server": "chatgpt-api server start --accounts <account-names> --api-key <api-key>",
-            "check_capacity": "chatgpt-api admin capacity --base-url http://127.0.0.1:8000/v1 --api-key <api-key>",
+            "start_server": "python3 -m chatgpt_api server start --accounts <account-names> --api-key <api-key>",
+            "check_capacity": "python3 -m chatgpt_api admin capacity --base-url http://127.0.0.1:8000/v1 --api-key <api-key>",
             "docker": "docker compose up --build",
         },
     }
@@ -583,9 +583,9 @@ async def cmd_doctor(args: argparse.Namespace) -> int:
         print(f"{_status_word(bool(check['ok'])):<7} {check['name']:<17} {check.get('detail') or '-'}")
     print()
     print("next:")
-    print("  chatgpt-api server start --accounts <account-names> --api-key local-dev-key")
+    print("  python3 -m chatgpt_api server start --accounts <account-names> --api-key local-dev-key")
     print("  example account aliases: free-main,pro-main")
-    print("  chatgpt-api admin capacity --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key")
+    print("  python3 -m chatgpt_api admin capacity --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key")
     print("  docker compose up --build")
     return 0 if payload["ok"] else 1
 
@@ -596,7 +596,10 @@ ACCOUNT_NAME_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9_-]{0,63}")
 def _validate_account_name(value: str) -> str:
     account = value.strip()
     if not ACCOUNT_NAME_RE.fullmatch(account):
-        raise ProviderError("account name must use English letters, numbers, dash, or underscore")
+        raise ProviderError(
+            "account name must be an ASCII slug: English letters, numbers, dash, or underscore; "
+            "examples: free-main, pro-main, free_2"
+        )
     return account
 
 
@@ -620,6 +623,18 @@ def _prompt_choice(label: str, choices: list[str], *, default: str) -> str:
         print(f"choose one of: {choice_text}")
 
 
+def _prompt_menu_choice(max_choice: int) -> str:
+    while True:
+        value = input(_color("select", "1;36") + f" [1-{max_choice}, q, ?]: ").strip().lower()
+        if value in {"q", "quit", "exit"}:
+            return "quit"
+        if value in {"", "?", "h", "help"}:
+            return "help"
+        if value.isdigit() and 1 <= int(value) <= max_choice:
+            return value
+        print(f"enter a number from 1-{max_choice}, q to quit, or ? to redraw the menu")
+
+
 def _prompt_int(label: str, *, default: int) -> int:
     while True:
         value = input(f"{label} [{default}]: ").strip()
@@ -637,6 +652,37 @@ def _prompt_account_name(label: str = "account name/alias", *, default: str | No
             return _validate_account_name(_prompt_text(label, default=default))
         except ProviderError as exc:
             print(exc)
+
+
+def _suggest_account_alias(profiles: list[str]) -> str:
+    index = len(profiles) + 1
+    while True:
+        candidate = f"account-{index}"
+        if candidate not in profiles:
+            return candidate
+        index += 1
+
+
+def _prompt_new_account_alias(profiles: list[str]) -> str | None:
+    print("Alias rules: English letters, numbers, dash, or underscore only.")
+    print("Examples: free-main, pro-main, work-pro, free_2")
+    print("Type `back` to cancel.")
+    default = _suggest_account_alias(profiles)
+    while True:
+        value = input(f"new account alias [{default}]: ").strip()
+        if value.lower() in {"back", "cancel"}:
+            return None
+        if not value:
+            value = default
+        try:
+            account = _validate_account_name(value)
+        except ProviderError as exc:
+            print(exc)
+            continue
+        if account in profiles:
+            print(f"`{account}` already exists. Use update, or choose a different alias.")
+            continue
+        return account
 
 
 def _prompt_accounts_csv(label: str, *, default: str, profiles: list[str] | None = None) -> str:
@@ -720,8 +766,8 @@ def _prompt_account_name_or_all(*, default: str = "all") -> str:
             print(exc)
 
 
-def _prompt_capture_text() -> str:
-    mode = _prompt_choice("capture source", ["file", "paste"], default="file")
+def _prompt_capture_text(*, default_mode: str = "paste") -> str:
+    mode = _prompt_choice("capture source", ["paste", "file"], default=default_mode)
     if mode == "file":
         while True:
             path_text = _prompt_text("capture file path")
@@ -729,7 +775,10 @@ def _prompt_capture_text() -> str:
             if path.exists():
                 return path.read_text(encoding="utf-8")
             print(f"file not found: {path}")
-    print("Paste the full copied headers plus payload/request data.")
+    print()
+    print(_headline("Paste ChatGPT Request Capture"))
+    print("Paste all request headers plus Chrome Payload or Safari Request Data.")
+    print("Nothing is saved until required fields pass inspection.")
     print("Finish with a line containing only END_CAPTURE.")
     lines: list[str] = []
     while True:
@@ -748,120 +797,182 @@ def _prompt_capture_text() -> str:
 
 async def cmd_menu(args: argparse.Namespace) -> int:
     if not sys.stdin.isatty():
-        print("Interactive menu requires a TTY. Use `chatgpt-api admin ...` commands in Docker or CI.", file=sys.stderr)
+        print("Interactive menu requires a TTY. Use `python3 -m chatgpt_api admin ...` commands in Docker or CI.", file=sys.stderr)
         return 2
     while True:
-        print()
-        print(_headline("ChatGPT API Control Menu"))
-        print(f"base_url {_mono(args.base_url)}")
-        print("1. Doctor")
-        print("2. Status")
-        print("3. Capacity")
-        print("4. Usage")
-        print("5. Models")
-        print("6. Account list")
-        print("7. Verify accounts")
-        print("8. Add or update account capture")
-        print("9. Delete account")
-        print("10. Artifacts")
-        print("11. Test chat")
-        print("12. Test image")
-        print("13. opencode config")
-        print("14. Launch command presets")
-        print("15. Quit")
-        choice = input("choose 1-15: ").strip()
-        if choice == "1":
-            result = await cmd_doctor(argparse.Namespace(base_url=args.base_url, api_key=args.api_key, accounts_dir=_accounts_dir_default(), json=False))
-        elif choice == "2":
-            result = await cmd_admin_status(argparse.Namespace(base_url=args.base_url, api_key=args.api_key, json=False))
-        elif choice == "3":
-            result = await cmd_admin_capacity(argparse.Namespace(base_url=args.base_url, api_key=args.api_key, json=False))
-        elif choice == "4":
-            result = await cmd_admin_usage(argparse.Namespace(base_url=args.base_url, api_key=args.api_key, json=False))
-        elif choice == "5":
-            result = await cmd_admin_models(argparse.Namespace(base_url=args.base_url, api_key=args.api_key, json=False))
-        elif choice == "6":
-            result = await cmd_admin_accounts(argparse.Namespace(base_url=args.base_url, api_key=args.api_key, json=False))
-        elif choice == "7":
-            account = await _prompt_admin_account(args, "account alias to verify", allow_all=True, default="all")
-            result = await cmd_admin_check_accounts(argparse.Namespace(base_url=args.base_url, api_key=args.api_key, account=account, json=False))
-        elif choice == "8":
-            action = _prompt_choice("account action", ["add", "update"], default="update")
-            profiles = await _admin_account_aliases(args)
-            if action == "add":
-                account = _prompt_account_from_list(
-                    "account alias to create",
-                    profiles=profiles,
-                    allow_new=True,
-                    default="new",
-                )
-            else:
-                account = _prompt_account_from_list("account alias to update", profiles=profiles)
-            result = await cmd_admin_account_save(
-                argparse.Namespace(
-                    base_url=args.base_url,
-                    api_key=args.api_key,
-                    account=account,
-                    capture_file=None,
-                    paste=False,
-                    no_live_verify=False,
-                    json=False,
-                    account_action=action,
-                )
-            )
-        elif choice == "9":
-            account = await _prompt_admin_account(args, "account alias to delete")
-            confirm = input(f"delete local capture/settings for account `{account}`? type DELETE: ").strip()
-            if confirm != "DELETE":
-                print("cancelled")
-                result = 0
-            else:
-                result = await cmd_admin_delete_account(
-                    argparse.Namespace(
-                        base_url=args.base_url,
-                        api_key=args.api_key,
-                        account=account,
-                        keep_capture=False,
-                        keep_settings=False,
-                        json=False,
-                    )
-                )
-        elif choice == "10":
-            result = await cmd_admin_artifacts(argparse.Namespace(base_url=args.base_url, api_key=args.api_key, limit=25, json=False))
-        elif choice == "11":
-            message = _prompt_text("test chat message", default="Say hello in one short sentence.")
-            model = _prompt_text("model", default="auto")
-            result = await cmd_admin_test_chat(argparse.Namespace(base_url=args.base_url, api_key=args.api_key, message=message, model=model, json=False))
-        elif choice == "12":
-            prompt = _prompt_text("image prompt", default="A tiny blue glass app icon, no text.")
-            model = _prompt_text("model", default="auto")
-            output_dir = _prompt_text("output dir (blank = server default)", default="", allow_empty=True) or None
-            result = await cmd_admin_test_image(
-                argparse.Namespace(base_url=args.base_url, api_key=args.api_key, prompt=prompt, model=model, output_dir=output_dir, json=False)
-            )
-        elif choice == "13":
-            action = _prompt_choice("opencode action", ["status", "inject", "eject"], default="status")
-            model = _prompt_text("opencode model", default="chatgpt-web/auto@optimized")
-            config_path = _prompt_text("opencode config path (blank = default)", default="", allow_empty=True) or None
-            result = await cmd_admin_opencode(
-                argparse.Namespace(base_url=args.base_url, api_key=args.api_key, action=action, model=model, config_path=config_path, json=False)
-            )
-        elif choice == "14":
-            result = await cmd_admin_presets(
-                argparse.Namespace(
-                    accounts=os.environ.get("CHATGPT_ACCOUNTS", "free-main,pro-main"),
-                    api_key=args.api_key,
-                    lan_host="0.0.0.0",
-                    lan_base_url=os.environ.get("CHATGPT_PUBLIC_BASE_URL", "http://192.168.1.203:8000/v1"),
-                )
-            )
-        elif choice == "15":
+        _print_control_menu(args)
+        choice = _prompt_menu_choice(15)
+        if choice == "quit":
             return 0
-        else:
-            print("unknown choice")
-            result = 1
+        if choice == "help":
+            continue
+        print()
+        try:
+            result = await _run_menu_action(args, choice)
+        except KeyboardInterrupt:
+            print("\ncancelled")
+            result = 130
+        except ProviderError as exc:
+            print(_color(f"error: {exc}", "1;31"))
+            result = 2
         if result:
-            return result
+            print(_color(f"action finished with exit code {result}", "1;33"))
+        _press_enter()
+
+
+def _print_control_menu(args: argparse.Namespace) -> None:
+    print()
+    print(_headline("ChatGPT API Control Center"))
+    print(f"API        {_mono(args.base_url)}")
+    print(f"Bearer     {'set' if args.api_key else 'not set'}")
+    print(f"Shortcut   {_mono('python3 -m chatgpt_api <command>')} works even when {_mono('chatgpt-api')} is not on PATH")
+    print()
+    _print_menu_group(
+        "Observe",
+        [
+            ("1", "Doctor", "local setup, API health, Docker files"),
+            ("2", "Status", "running server, routing, storage"),
+            ("3", "Capacity", "parallel slots, quotas, routes"),
+            ("4", "Usage", "live per-account limits and reset times"),
+            ("5", "Models", "models exposed by the local API"),
+        ],
+    )
+    _print_menu_group(
+        "Accounts",
+        [
+            ("6", "List accounts", "saved aliases and capture paths"),
+            ("7", "Verify accounts", "live-check one account or all"),
+            ("8", "Add account", "paste Safari/Chrome capture; validates before save"),
+            ("9", "Update account", "refresh an expired capture"),
+            ("10", "Delete account", "remove capture/settings after confirmation"),
+        ],
+    )
+    _print_menu_group(
+        "Use and integrate",
+        [
+            ("11", "Artifacts", "saved images and research reports"),
+            ("12", "Test chat", "send one smoke-test message"),
+            ("13", "Test image", "generate one image and print its download path"),
+            ("14", "opencode config", "status, inject, or eject consumer config"),
+            ("15", "Launch presets", "copy-paste server commands"),
+        ],
+    )
+    print()
+
+
+def _print_menu_group(title: str, rows: list[tuple[str, str, str]]) -> None:
+    print(_color(title.upper(), "1;34"))
+    for number, label, description in rows:
+        print(f"  {number:>2}. {label:<18} {description}")
+    print()
+
+
+async def _run_menu_action(args: argparse.Namespace, choice: str) -> int:
+    if choice == "1":
+        return await cmd_doctor(argparse.Namespace(base_url=args.base_url, api_key=args.api_key, accounts_dir=_accounts_dir_default(), json=False))
+    if choice == "2":
+        return await cmd_admin_status(argparse.Namespace(base_url=args.base_url, api_key=args.api_key, json=False))
+    if choice == "3":
+        return await cmd_admin_capacity(argparse.Namespace(base_url=args.base_url, api_key=args.api_key, json=False))
+    if choice == "4":
+        return await cmd_admin_usage(argparse.Namespace(base_url=args.base_url, api_key=args.api_key, json=False))
+    if choice == "5":
+        return await cmd_admin_models(argparse.Namespace(base_url=args.base_url, api_key=args.api_key, json=False))
+    if choice == "6":
+        return await cmd_admin_accounts(argparse.Namespace(base_url=args.base_url, api_key=args.api_key, json=False))
+    if choice == "7":
+        account = await _prompt_admin_account(args, "account alias to verify", allow_all=True, default="all")
+        return await cmd_admin_check_accounts(argparse.Namespace(base_url=args.base_url, api_key=args.api_key, account=account, json=False))
+    if choice == "8":
+        return await _menu_save_account_capture(args, action="add")
+    if choice == "9":
+        return await _menu_save_account_capture(args, action="update")
+    if choice == "10":
+        return await _menu_delete_account(args)
+    if choice == "11":
+        return await cmd_admin_artifacts(argparse.Namespace(base_url=args.base_url, api_key=args.api_key, limit=25, json=False))
+    if choice == "12":
+        message = _prompt_text("test chat message", default="Say hello in one short sentence.")
+        model = _prompt_text("model", default="auto")
+        return await cmd_admin_test_chat(argparse.Namespace(base_url=args.base_url, api_key=args.api_key, message=message, model=model, json=False))
+    if choice == "13":
+        prompt = _prompt_text("image prompt", default="A tiny blue glass app icon, no text.")
+        model = _prompt_text("model", default="auto")
+        output_dir = _prompt_text("output dir (blank = server default)", default="", allow_empty=True) or None
+        return await cmd_admin_test_image(
+            argparse.Namespace(base_url=args.base_url, api_key=args.api_key, prompt=prompt, model=model, output_dir=output_dir, json=False)
+        )
+    if choice == "14":
+        action = _prompt_choice("opencode action", ["status", "inject", "eject"], default="status")
+        model = _prompt_text("opencode model", default="chatgpt-web/auto@optimized")
+        config_path = _prompt_text("opencode config path (blank = default)", default="", allow_empty=True) or None
+        return await cmd_admin_opencode(
+            argparse.Namespace(base_url=args.base_url, api_key=args.api_key, action=action, model=model, config_path=config_path, json=False)
+        )
+    if choice == "15":
+        return await cmd_admin_presets(
+            argparse.Namespace(
+                accounts=os.environ.get("CHATGPT_ACCOUNTS", "free-main,pro-main"),
+                api_key=args.api_key,
+                lan_host="0.0.0.0",
+                lan_base_url=os.environ.get("CHATGPT_PUBLIC_BASE_URL", "http://192.168.1.203:8000/v1"),
+            )
+        )
+    return 1
+
+
+async def _menu_save_account_capture(args: argparse.Namespace, *, action: str) -> int:
+    profiles = await _admin_account_aliases(args)
+    print(_headline("Account Capture Wizard"))
+    print("Use a local alias such as free-main, pro-main, work-pro, or test-free.")
+    print("The capture is inspected before save, then live-verified unless you use the non-interactive flags.")
+    print()
+    if action == "add":
+        account = _prompt_new_account_alias(profiles)
+        if account is None:
+            print("cancelled")
+            return 0
+    else:
+        if not profiles:
+            print("No saved accounts exist yet. Choose Add account first.")
+            return 1
+        account = _prompt_account_from_list("account alias to update", profiles=profiles)
+    capture_text = _prompt_capture_text(default_mode="paste")
+    return await _save_capture_text_with_verification(
+        argparse.Namespace(
+            base_url=args.base_url,
+            api_key=args.api_key,
+            no_live_verify=False,
+            json=False,
+            account_action=action,
+        ),
+        account,
+        capture_text,
+    )
+
+
+async def _menu_delete_account(args: argparse.Namespace) -> int:
+    account = await _prompt_admin_account(args, "account alias to delete")
+    print(f"This removes local capture/settings for `{account}`.")
+    confirm = input("type DELETE to confirm, anything else to cancel: ").strip()
+    if confirm != "DELETE":
+        print("cancelled")
+        return 0
+    return await cmd_admin_delete_account(
+        argparse.Namespace(
+            base_url=args.base_url,
+            api_key=args.api_key,
+            account=account,
+            keep_capture=False,
+            keep_settings=False,
+            json=False,
+        )
+    )
+
+
+def _press_enter() -> None:
+    if sys.stdin.isatty():
+        input(_color("\npress Enter to return to the menu...", "2"))
 
 
 async def cmd_server_command(args: argparse.Namespace) -> int:
@@ -871,14 +982,14 @@ async def cmd_server_command(args: argparse.Namespace) -> int:
         return 0
     if args.preset == "lan":
         print(
-            "CHATGPT_API_KEY={key} chatgpt-api server start "
+            "CHATGPT_API_KEY={key} python3 -m chatgpt_api server start "
             "--accounts {accounts} --account-strategy failover --host 0.0.0.0 --port 8000 "
             "--public-base-url {base}"
             .format(key=args.api_key, accounts=args.accounts, base=args.lan_base_url)
         )
         return 0
     print(
-        "CHATGPT_API_KEY={key} chatgpt-api server start "
+        "CHATGPT_API_KEY={key} python3 -m chatgpt_api server start "
         "--accounts {accounts} --account-strategy failover --host 127.0.0.1 --port 8000 "
         "--public-base-url http://127.0.0.1:8000/v1"
         .format(key=args.api_key, accounts=args.accounts)
@@ -1235,6 +1346,10 @@ async def cmd_admin_save_capture(args: argparse.Namespace) -> int:
 async def _save_capture_with_verification(args: argparse.Namespace) -> int:
     account = _account_name_from_args(args)
     capture_text = _capture_text_from_args(args)
+    return await _save_capture_text_with_verification(args, account, capture_text)
+
+
+async def _save_capture_text_with_verification(args: argparse.Namespace, account: str, capture_text: str) -> int:
     inspect_payload = await _admin_request(
         args,
         "POST",
@@ -1461,7 +1576,7 @@ async def cmd_admin_presets(args: argparse.Namespace) -> int:
     print("Local single-machine dev:")
     print(
         "  "
-        "CHATGPT_API_KEY={key} python3 -m chatgpt_api.cli serve "
+        "CHATGPT_API_KEY={key} python3 -m chatgpt_api serve "
         "--accounts {accounts} --account-strategy failover --host 127.0.0.1 --port 8000 "
         "--public-base-url http://127.0.0.1:8000/v1"
         .format(key=args.api_key, accounts=args.accounts)
@@ -1469,7 +1584,7 @@ async def cmd_admin_presets(args: argparse.Namespace) -> int:
     print("\nLAN API server:")
     print(
         "  "
-        "CHATGPT_API_KEY={key} python3 -m chatgpt_api.cli serve "
+        "CHATGPT_API_KEY={key} python3 -m chatgpt_api serve "
         "--accounts {accounts} --account-strategy failover --host {host} --port 8000 "
         "--public-base-url {base}"
         .format(key=args.api_key, accounts=args.accounts, host=args.lan_host, base=args.lan_base_url)
@@ -1482,14 +1597,14 @@ async def cmd_admin_presets(args: argparse.Namespace) -> int:
         "CHATGPT_CHAT_CONCURRENCY=free=1,go=2,plus=3,pro=4 "
         "CHATGPT_UPLOAD_CONCURRENCY=free=1,go=1,plus=1,pro=1 "
         "CHATGPT_IMAGE_CONCURRENCY=free=1,go=1,plus=2,pro=3 "
-        "CHATGPT_RESEARCH_CONCURRENCY=free=0,go=0,plus=2,pro=2 "
-        "python3 -m chatgpt_api.cli serve"
+        "CHATGPT_RESEARCH_CONCURRENCY=free=1,go=1,plus=2,pro=2 "
+        "python3 -m chatgpt_api serve"
         .format(key=args.api_key, accounts=args.accounts, base=args.lan_base_url)
     )
     print("\nManage while running:")
-    print("  chatgpt-api admin status --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key")
-    print("  chatgpt-api admin set-limits --upload pro=1 --image pro=3 --research pro=2 --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key")
-    print("  chatgpt-api admin opencode inject --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key")
+    print("  python3 -m chatgpt_api admin status --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key")
+    print("  python3 -m chatgpt_api admin set-limits --upload pro=1 --image pro=3 --research pro=2 --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key")
+    print("  python3 -m chatgpt_api admin opencode inject --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key")
     return 0
 
 
@@ -2026,7 +2141,7 @@ def _apply_interactive_serve_args(args: argparse.Namespace) -> None:
     ) or None
     args.research_concurrency = _prompt_text(
         "research concurrency limits",
-        default=args.research_concurrency or "free=0,go=0,plus=2,pro=2",
+        default=args.research_concurrency or "free=1,go=1,plus=2,pro=2",
         allow_empty=True,
     ) or None
     args.web_timeout = float(_prompt_text("web timeout seconds", default=str(int(args.web_timeout))))

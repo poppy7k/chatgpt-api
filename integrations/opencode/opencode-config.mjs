@@ -278,7 +278,7 @@ function printConnectionHelp(baseUrl) {
   );
   console.log("Local dev:");
   console.log(
-    `  CHATGPT_API_KEY=local-dev-key python3 -m chatgpt_api.cli serve \\`,
+    `  CHATGPT_API_KEY=local-dev-key python3 -m chatgpt_api serve \\`,
   );
   console.log(`    --accounts free-main,pro-main --account-strategy failover \\`);
   console.log(`    --host 127.0.0.1 --port 8000 \\`);

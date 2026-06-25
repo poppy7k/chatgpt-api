@@ -2,6 +2,19 @@
 
 `chatgpt-api` is the operator CLI for the local ChatGPT Web Bridge.
 
+Use the module command in docs and automation:
+
+```sh
+python3 -m chatgpt_api <command>
+```
+
+If your shell can find the installed console script, this shorter form is also
+valid:
+
+```sh
+chatgpt-api <command>
+```
+
 It has three layers:
 
 - local capture tools that inspect account files without starting the API
@@ -9,15 +22,6 @@ It has three layers:
 - `admin` commands that manage a running API server
 
 ## First Checks
-
-```sh
-chatgpt-api doctor
-chatgpt-api doctor --json
-chatgpt-api menu
-chatgpt-api
-```
-
-If `chatgpt-api` is not found, use the equivalent module entrypoint:
 
 ```sh
 python3 -m chatgpt_api doctor
@@ -29,7 +33,7 @@ python3 -m chatgpt_api
 `doctor` checks Python version, local account capture profiles, Docker files,
 `/health`, and `/v1/models`.
 
-Running `chatgpt-api` with no arguments in an interactive terminal opens the
+Running the CLI with no arguments in an interactive terminal opens the
 same control menu. Non-interactive shells and Docker/CI should use explicit
 subcommands.
 
@@ -57,7 +61,7 @@ you choose when saving captures, for example `free-main`, `pro-main`, or
 Recommended local command:
 
 ```sh
-chatgpt-api server start \
+python3 -m chatgpt_api server start \
   --accounts free-main,pro-main \
   --account-strategy failover \
   --api-key local-dev-key \
@@ -69,7 +73,7 @@ chatgpt-api server start \
 LAN command:
 
 ```sh
-chatgpt-api server start \
+python3 -m chatgpt_api server start \
   --accounts free-main,pro-main \
   --account-strategy failover \
   --api-key local-dev-key \
@@ -81,9 +85,9 @@ chatgpt-api server start \
 Print a preset without starting:
 
 ```sh
-chatgpt-api server command --preset local
-chatgpt-api server command --preset lan
-chatgpt-api server command --preset docker
+python3 -m chatgpt_api server command --preset local
+python3 -m chatgpt_api server command --preset lan
+python3 -m chatgpt_api server command --preset docker
 ```
 
 `chatgpt-api serve` is still supported and accepts the same server flags.
@@ -91,7 +95,7 @@ chatgpt-api server command --preset docker
 Fully interactive launch:
 
 ```sh
-chatgpt-api server start --interactive
+python3 -m chatgpt_api server start --interactive
 ```
 
 The interactive launch asks for account aliases, routing strategy, host, port,
@@ -104,16 +108,16 @@ API.
 All admin commands talk to a running API server.
 
 ```sh
-chatgpt-api admin status --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
-chatgpt-api admin capacity --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
-chatgpt-api admin models --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
-chatgpt-api admin usage --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
+python3 -m chatgpt_api admin status --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
+python3 -m chatgpt_api admin capacity --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
+python3 -m chatgpt_api admin models --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
+python3 -m chatgpt_api admin usage --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
 ```
 
 Use `--json` for stable machine output:
 
 ```sh
-chatgpt-api admin capacity --json --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
+python3 -m chatgpt_api admin capacity --json --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
 ```
 
 ## Account Management
@@ -121,15 +125,15 @@ chatgpt-api admin capacity --json --base-url http://127.0.0.1:8000/v1 --api-key 
 List accounts known by the running API:
 
 ```sh
-chatgpt-api admin accounts --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
-chatgpt-api admin account list --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
+python3 -m chatgpt_api admin accounts --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
+python3 -m chatgpt_api admin account list --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
 ```
 
 Live-check all accounts:
 
 ```sh
-chatgpt-api admin check-accounts --account all --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
-chatgpt-api admin account verify --account all --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
+python3 -m chatgpt_api admin check-accounts --account all --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
+python3 -m chatgpt_api admin account verify --account all --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
 ```
 
 Add or refresh an account from copied browser request details. The CLI first
@@ -137,7 +141,7 @@ inspects the capture, refuses to save if required or recommended checks fail,
 then live-checks the account after saving.
 
 ```sh
-chatgpt-api admin account add \
+python3 -m chatgpt_api admin account add \
   --account pro-main \
   --capture-file ./chatgpt-request.txt \
   --base-url http://127.0.0.1:8000/v1 \
@@ -147,13 +151,13 @@ chatgpt-api admin account add \
 The same flow can be fully interactive:
 
 ```sh
-chatgpt-api menu
+python3 -m chatgpt_api menu
 ```
 
 Or paste a capture without preparing a file:
 
 ```sh
-chatgpt-api admin account add --paste \
+python3 -m chatgpt_api admin account add --paste \
   --base-url http://127.0.0.1:8000/v1 \
   --api-key local-dev-key
 ```
@@ -164,7 +168,7 @@ payload until a line containing only `END_CAPTURE`.
 Update an existing account after tokens/cookies expire:
 
 ```sh
-chatgpt-api admin account update \
+python3 -m chatgpt_api admin account update \
   --account pro-main \
   --capture-file ./chatgpt-request.txt \
   --base-url http://127.0.0.1:8000/v1 \
@@ -180,7 +184,7 @@ Account names should be ASCII slugs such as `free-main`, `pro-main`,
 Delete an account capture and settings:
 
 ```sh
-chatgpt-api admin account delete \
+python3 -m chatgpt_api admin account delete \
   --account old-free-main \
   --base-url http://127.0.0.1:8000/v1 \
   --api-key local-dev-key
@@ -193,11 +197,11 @@ The older `admin delete-account` command is still available.
 Recommended local defaults:
 
 ```sh
-chatgpt-api admin set-limits \
+python3 -m chatgpt_api admin set-limits \
   --chat free=1,go=2,plus=3,pro=4 \
   --upload free=1,go=1,plus=1,pro=1 \
   --image free=1,go=1,plus=2,pro=3 \
-  --research free=0,go=0,plus=2,pro=2 \
+  --research free=1,go=1,plus=2,pro=2 \
   --base-url http://127.0.0.1:8000/v1 \
   --api-key local-dev-key
 ```

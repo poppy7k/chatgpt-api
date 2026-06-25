@@ -76,12 +76,12 @@ provider actions and remote admin calls against a running API.
 Primary commands:
 
 ```sh
-chatgpt-api doctor
-chatgpt-api menu
-chatgpt-api server command --preset local
-chatgpt-api server start --accounts free-main,pro-main --api-key local-dev-key
-chatgpt-api admin status --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
-chatgpt-api admin account add --account pro-main --capture-file ./chatgpt-request.txt
+python3 -m chatgpt_api doctor
+python3 -m chatgpt_api menu
+python3 -m chatgpt_api server command --preset local
+python3 -m chatgpt_api server start --accounts free-main,pro-main --api-key local-dev-key
+python3 -m chatgpt_api admin status --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
+python3 -m chatgpt_api admin account add --account pro-main --capture-file ./chatgpt-request.txt
 chatgpt-api admin account update --account pro-main --capture-file ./chatgpt-request.txt
 chatgpt-api admin account verify --account all
 chatgpt-api admin account delete --account old-free-main
@@ -364,7 +364,7 @@ Recommended local plan defaults:
 chat:     free=1, go=2, plus=3, pro=4
 upload:   free=1, go=1, plus=1, pro=1
 image:    free=1, go=1, plus=2, pro=3
-research: free=0, go=0, plus=2, pro=2
+research: free=1, go=1, plus=2, pro=2
 ```
 
 If there are two Pro accounts and both are routed, the recommended image

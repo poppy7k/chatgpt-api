@@ -81,7 +81,7 @@ def test_server_command_prints_start_command(capsys):
 
     output = capsys.readouterr().out
     assert exit_code == 0
-    assert "chatgpt-api server start" in output
+    assert "python3 -m chatgpt_api server start" in output
     assert "--accounts free,pro" in output
     assert "local-dev-key" in output
 

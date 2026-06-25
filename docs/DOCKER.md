@@ -123,22 +123,22 @@ deployments where account captures are managed outside the container.
 
 `CHATGPT_RESEARCH_CONCURRENCY`
 : Local Deep Research throttles. Recommended defaults are
-  `free=0,go=0,plus=2,pro=2`.
+  `free=1,go=1,plus=2,pro=2`.
 
 ## CLI Checks
 
 From the host:
 
 ```sh
-chatgpt-api doctor --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
-chatgpt-api admin capacity --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
-chatgpt-api admin models --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
+python3 -m chatgpt_api doctor --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
+python3 -m chatgpt_api admin capacity --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
+python3 -m chatgpt_api admin models --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
 ```
 
 From inside the container:
 
 ```sh
-docker compose exec chatgpt-api chatgpt-api doctor --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
+docker compose exec chatgpt-api python3 -m chatgpt_api doctor --base-url http://127.0.0.1:8000/v1 --api-key local-dev-key
 ```
 
 ## Account Management

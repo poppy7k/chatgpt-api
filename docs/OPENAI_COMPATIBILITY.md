@@ -102,7 +102,7 @@ API reports them. The bridge also has local concurrency limits:
 recommended chat:     free=1, go=2, plus=3, pro=4
 recommended upload:   free=1, go=1, plus=1, pro=1
 recommended images:   free=1, go=1, plus=2, pro=3
-recommended research: free=0, go=0, plus=2, pro=2
+recommended research: free=1, go=1, plus=2, pro=2
 ```
 
 `upload` is the local bucket used by input-image calls: OCR, image description,

@@ -26,6 +26,7 @@ from chatgpt_api.api.openai_compat import (
     _models_with_agent_modes,
     _normalize_agent_prompt_mode,
     _parse_tool_calls,
+    _provider_for_account,
     _provider_error_status_and_payload,
     _response_is_tool_call_json,
     _resolve_agent_prompt_mode,
@@ -118,6 +119,22 @@ def test_classify_cloudflare_browser_challenge():
     assert error_type == "provider_auth_error"
     assert status == 401
     assert "Cloudflare" in hint
+
+
+def test_provider_error_payload_for_missing_account_capture():
+    error = OpenAICompatProviderError(
+        ProviderError("ChatGPT account capture for 'free' is not configured."),
+        requested_model=None,
+        provider_model=None,
+        account="free",
+    )
+
+    status, payload = _provider_error_status_and_payload(error)
+
+    assert status == 400
+    assert payload["error"]["code"] == "chatgpt_missing_account_capture"
+    assert payload["error"]["type"] == "invalid_request_error"
+    assert payload["error"]["chatgpt_account"] == "free"
 
 
 def test_admin_save_capture_requires_recommended_fields(tmp_path):
@@ -1087,6 +1104,21 @@ def test_models_for_config_includes_openai_image_alias(monkeypatch):
     models = _models_for_config(OpenAICompatConfig(account="free"))
 
     assert {"id": "gpt-image-1", "name": "ChatGPT Image"} in models
+
+
+def test_models_for_config_handles_missing_capture(tmp_path):
+    models = _models_for_config(OpenAICompatConfig(account="free", accounts_dir=tmp_path))
+    ids = {model["id"] for model in models}
+
+    assert "auto" in ids
+    assert "auto@optimized" in ids
+    assert "gpt-image-1" in ids
+    assert "chatgpt-deep-research" in ids
+
+
+def test_provider_for_account_reports_missing_capture(tmp_path):
+    with pytest.raises(ProviderError, match="account capture"):
+        _provider_for_account(OpenAICompatConfig(account="free", accounts_dir=tmp_path))
 
 
 def test_build_chat_prompt_optimized_uses_compact_tools():

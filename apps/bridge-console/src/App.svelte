@@ -1668,35 +1668,35 @@
         title: "Check running server",
         note: "Use this first inside Docker, SSH, or a headless box.",
         code: shell(
-          `python3 -m chatgpt_api.cli admin status --base-url ${quoteShell(baseUrl)} --api-key ${quoteShell(apiKey || DEFAULT_API_KEY)}`,
+          `python3 -m chatgpt_api admin status --base-url ${quoteShell(baseUrl)} --api-key ${quoteShell(apiKey || DEFAULT_API_KEY)}`,
         ),
       },
       {
         title: "List live usage",
         note: "Fetches the same usage table as /chatgpt:usage without opening the web console.",
         code: shell(
-          `python3 -m chatgpt_api.cli admin usage --base-url ${quoteShell(baseUrl)} --api-key ${quoteShell(apiKey || DEFAULT_API_KEY)}`,
+          `python3 -m chatgpt_api admin usage --base-url ${quoteShell(baseUrl)} --api-key ${quoteShell(apiKey || DEFAULT_API_KEY)}`,
         ),
       },
       {
         title: "Set runtime limits",
         note: "Persists per-plan/per-account throttles into the admin SQLite DB.",
         code: shell(
-          `python3 -m chatgpt_api.cli admin set-limits --chat free=1,go=2,plus=3,pro=4 --upload free=1,go=1,plus=1,pro=1 --image free=1,go=1,plus=2,pro=3 --research free=0,go=0,plus=2,pro=2 --base-url ${quoteShell(baseUrl)} --api-key ${quoteShell(apiKey || DEFAULT_API_KEY)}`,
+          `python3 -m chatgpt_api admin set-limits --chat free=1,go=2,plus=3,pro=4 --upload free=1,go=1,plus=1,pro=1 --image free=1,go=1,plus=2,pro=3 --research free=1,go=1,plus=2,pro=2 --base-url ${quoteShell(baseUrl)} --api-key ${quoteShell(apiKey || DEFAULT_API_KEY)}`,
         ),
       },
       {
         title: "Save account capture",
         note: "Fails before writing if the copied request is incomplete. Use it to refresh an expired account capture safely.",
         code: shell(
-          `python3 -m chatgpt_api.cli admin save-capture --account pro-main --capture-file ./chatgpt-request.txt --base-url ${quoteShell(baseUrl)} --api-key ${quoteShell(apiKey || DEFAULT_API_KEY)}`,
+          `python3 -m chatgpt_api admin save-capture --account pro-main --capture-file ./chatgpt-request.txt --base-url ${quoteShell(baseUrl)} --api-key ${quoteShell(apiKey || DEFAULT_API_KEY)}`,
         ),
       },
       {
         title: "Inject opencode",
         note: "Only writes opencode consumer config. It does not configure accounts, ports, or quotas.",
         code: shell(
-          `python3 -m chatgpt_api.cli admin opencode inject --model chatgpt-web/auto@optimized --base-url ${quoteShell(baseUrl)} --api-key ${quoteShell(apiKey || DEFAULT_API_KEY)}`,
+          `python3 -m chatgpt_api admin opencode inject --model chatgpt-web/auto@optimized --base-url ${quoteShell(baseUrl)} --api-key ${quoteShell(apiKey || DEFAULT_API_KEY)}`,
         ),
       },
       {
@@ -1712,8 +1712,9 @@
             `CHATGPT_IMAGE_OUTPUT_DIR=${quoteShell(imageOutputDir)} \\`,
             `CHATGPT_RESEARCH_OUTPUT_DIR=${quoteShell(researchOutputDir)} \\`,
             `CHATGPT_UPLOAD_CONCURRENCY=free=1,go=1,plus=1,pro=1 \\`,
+            `CHATGPT_RESEARCH_CONCURRENCY=free=1,go=1,plus=2,pro=2 \\`,
             `CHATGPT_ADMIN_DB_PATH=${quoteShell(adminDbPath)} \\`,
-            `python3 -m chatgpt_api.cli serve`,
+            `python3 -m chatgpt_api serve`,
           ].join("\n"),
         ),
       },
@@ -2215,7 +2216,7 @@
       {
         title: "LAN public URL",
         body: "Start the API with --host 0.0.0.0 and set --public-base-url to the LAN IP. Returned download_url will then be reachable by phones or other computers.",
-        example: `python3 -m chatgpt_api.cli serve --host 0.0.0.0 --public-base-url ${quoteShell(lanBase)}`,
+        example: `python3 -m chatgpt_api serve --host 0.0.0.0 --public-base-url ${quoteShell(lanBase)}`,
       },
       {
         title: "Research reports",
@@ -2227,7 +2228,7 @@
 
   function buildServeCommand() {
     const args = [
-      "python3 -m chatgpt_api.cli serve",
+      "python3 -m chatgpt_api serve",
       "--account",
       quoteShell(serverAccount),
       "--accounts",
