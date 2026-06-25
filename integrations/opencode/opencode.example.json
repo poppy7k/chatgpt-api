@@ -1,0 +1,89 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "chatgpt-web/auto@optimized",
+  "small_model": "chatgpt-web/auto@optimized",
+  "provider": {
+    "chatgpt-web": {
+      "npm": "@ai-sdk/openai-compatible",
+      "name": "ChatGPT Web Local",
+      "options": {
+        "baseURL": "http://127.0.0.1:8000/v1",
+        "apiKey": "{env:CHATGPT_API_KEY}"
+      },
+      "models": {
+        "auto": {
+          "name": "ChatGPT Auto"
+        },
+        "auto@optimized": {
+          "name": "ChatGPT Auto (Optimized Agent Bridge)"
+        },
+        "auto@opencode": {
+          "name": "ChatGPT Auto (Full opencode Prompt Bridge)"
+        },
+        "gpt-5-5": {
+          "name": "GPT-5.5"
+        },
+        "gpt-5-5@optimized": {
+          "name": "GPT-5.5 (Optimized Agent Bridge)"
+        },
+        "gpt-5-5@opencode": {
+          "name": "GPT-5.5 (Full opencode Prompt Bridge)"
+        },
+        "gpt-5-5-thinking-standard": {
+          "name": "GPT-5.5 Medium"
+        },
+        "gpt-5-5-thinking-standard@optimized": {
+          "name": "GPT-5.5 Medium (Optimized Agent Bridge)"
+        },
+        "gpt-5-5-thinking-standard@opencode": {
+          "name": "GPT-5.5 Medium (Full opencode Prompt Bridge)"
+        },
+        "gpt-5-5-thinking-extended": {
+          "name": "GPT-5.5 High"
+        },
+        "gpt-5-5-thinking-extended@optimized": {
+          "name": "GPT-5.5 High (Optimized Agent Bridge)"
+        },
+        "gpt-5-5-thinking-extended@opencode": {
+          "name": "GPT-5.5 High (Full opencode Prompt Bridge)"
+        },
+        "gpt-5-5-thinking-max": {
+          "name": "GPT-5.5 Extra High"
+        },
+        "gpt-5-5-thinking-max@optimized": {
+          "name": "GPT-5.5 Extra High (Optimized Agent Bridge)"
+        },
+        "gpt-5-5-thinking-max@opencode": {
+          "name": "GPT-5.5 Extra High (Full opencode Prompt Bridge)"
+        },
+        "gpt-5-5-pro-standard": {
+          "name": "GPT-5.5 Pro Standard"
+        },
+        "gpt-5-5-pro-standard@optimized": {
+          "name": "GPT-5.5 Pro Standard (Optimized Agent Bridge)"
+        },
+        "gpt-5-5-pro-standard@opencode": {
+          "name": "GPT-5.5 Pro Standard (Full opencode Prompt Bridge)"
+        },
+        "gpt-5-5-pro-extended": {
+          "name": "GPT-5.5 Pro Extended"
+        },
+        "gpt-5-5-pro-extended@optimized": {
+          "name": "GPT-5.5 Pro Extended (Optimized Agent Bridge)"
+        },
+        "gpt-5-5-pro-extended@opencode": {
+          "name": "GPT-5.5 Pro Extended (Full opencode Prompt Bridge)"
+        },
+        "chatgpt-deep-research": {
+          "name": "ChatGPT Deep Research"
+        },
+        "chatgpt-deep-research@optimized": {
+          "name": "ChatGPT Deep Research (Optimized Agent Bridge)"
+        },
+        "chatgpt-deep-research@opencode": {
+          "name": "ChatGPT Deep Research (Full opencode Prompt Bridge)"
+        }
+      }
+    }
+  }
+}

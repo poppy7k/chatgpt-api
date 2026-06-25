@@ -1,0 +1,242 @@
+from chatgpt_api.providers.chatgpt.auth import ChatGPTAuthConfig
+from chatgpt_api.providers.chatgpt.request_capture import CapturedRequest
+
+
+def test_parse_copied_request_summary():
+    text = """
+Summary
+URL: https://chatgpt.com/backend-api/f/conversation
+Status: 200
+
+Request
+Accept: text/event-stream
+Authorization: Bearer fake-token
+Cookie: oai-did=device-1; __Secure-next-auth.session-token.0=session-1
+OpenAI-Sentinel-Chat-Requirements-Token: req-token
+OpenAI-Sentinel-Proof-Token: proof-token
+OpenAI-Sentinel-Turnstile-Token: turnstile-token
+x-conduit-token: conduit-token
+OAI-Device-Id: device-1
+
+Request Data
+MIME Type: application/json
+Request Data: {"action":"next","model":"gpt-5.5"}
+"""
+
+    capture = CapturedRequest.from_text(text)
+
+    assert capture.url == "https://chatgpt.com/backend-api/f/conversation"
+    assert capture.status == 200
+    assert capture.headers["authorization"] == "Bearer fake-token"
+    assert capture.cookies["oai-did"] == "device-1"
+    assert capture.request_json == {"action": "next", "model": "gpt-5.5"}
+    assert capture.redacted_headers()["authorization"] == "<redacted>"
+
+
+def test_auth_config_from_copied_request():
+    capture = CapturedRequest.from_text(
+        """
+URL: https://chatgpt.com/backend-api/f/conversation
+Authorization: Bearer fake-token
+Cookie: oai-did=device-1
+OpenAI-Sentinel-Proof-Token: proof-token
+OpenAI-Sentinel-Turnstile-Token: turnstile-token
+"""
+    )
+
+    config = ChatGPTAuthConfig.from_captured_request(capture)
+
+    assert config.access_token == "fake-token"
+    assert config.proof_token == "proof-token"
+    assert config.turnstile_token == "turnstile-token"
+    assert config.cookies["oai-did"] == "device-1"
+
+
+def test_parser_ignores_response_headers():
+    capture = CapturedRequest.from_text(
+        """
+Request
+Content-Type: application/json
+Authorization: Bearer fake-token
+
+Response
+Content-Type: text/event-stream; charset=utf-8
+Set-Cookie: ignored=yes
+"""
+    )
+
+    assert capture.headers["content-type"] == "application/json"
+    assert "set-cookie" not in capture.headers
+
+
+def test_cookie_parser_handles_chrome_json_cookie_and_response_updates():
+    capture = CapturedRequest.from_text(
+        """
+Request URL
+https://chatgpt.com/backend-api/f/conversation
+content-type
+application/json
+cookie
+oai-did=device-1; g_state={"i_l":0,"i_ll":1782322235556}; __Secure-next-auth.session-token.0=session-0; cf_clearance=clearance-1
+set-cookie
+_uasid="uasid-1"; expires=Wed, 24 Jun 2026 20:33:51 GMT; HttpOnly; Path=/; SameSite=none; Secure
+set-cookie
+_umsid="umsid-1"; expires=Wed, 24 Jun 2026 20:33:51 GMT; HttpOnly; Path=/; SameSite=none; Secure
+x-oai-is-update
+ois1.updated
+{"action":"next","messages":[],"model":"auto","parent_message_id":"client-created-root"}
+"""
+    )
+
+    assert capture.cookies["g_state"] == '{"i_l":0,"i_ll":1782322235556}'
+    assert capture.cookies["__Secure-next-auth.session-token.0"] == "session-0"
+    assert capture.cookies["cf_clearance"] == "clearance-1"
+    assert capture.cookies["_uasid"] == "uasid-1"
+    assert capture.cookies["_umsid"] == "umsid-1"
+    assert capture.cookies["__Secure-oai-is"] == "ois1.updated"
+    assert "set-cookie" not in capture.headers
+    assert "x-oai-is-update" not in capture.headers
+
+
+def test_parse_chrome_devtools_request_details():
+    capture = CapturedRequest.from_text(
+        """
+Request URL
+https://chatgpt.com/backend-api/f/conversation
+Request Method
+POST
+Status Code
+200 OK
+authorization
+Bearer chrome-token
+content-type
+application/json
+cookie
+oai-did=device-2; __Secure-next-auth.session-token.0=session-2
+openai-sentinel-proof-token
+proof-token
+oai-device-id
+device-2
+Request Payload
+{"action":"next","model":"auto"}
+"""
+    )
+
+    assert capture.url == "https://chatgpt.com/backend-api/f/conversation"
+    assert capture.status == 200
+    assert capture.headers["authorization"] == "Bearer chrome-token"
+    assert capture.headers["openai-sentinel-proof-token"] == "proof-token"
+    assert "https" not in capture.headers
+    assert "post" not in capture.headers
+    assert capture.cookies["oai-did"] == "device-2"
+    assert capture.request_json == {"action": "next", "model": "auto"}
+
+
+def test_parse_chrome_devtools_details_with_embedded_payload_without_marker():
+    capture = CapturedRequest.from_text(
+        """
+Request URL
+https://chatgpt.com/backend-api/f/conversation
+Request Method
+POST
+Status Code
+200 OK
+authorization
+Bearer chrome-token
+content-type
+application/json
+cookie
+oai-did=device-3; g_state={"i_l":0}; __Secure-next-auth.session-token.0=session-3
+openai-sentinel-chat-requirements-token
+req-token
+openai-sentinel-proof-token
+proof-token
+openai-sentinel-turnstile-token
+turnstile-token
+x-oai-turn-trace-id
+trace-1
+x-openai-target-route
+/backend-api/f/conversation{
+  "action": "next",
+  "messages": [
+    {
+      "author": {"role": "user"},
+      "content": {"content_type": "text", "parts": ["hello"]}
+    }
+  ],
+  "parent_message_id": "client-created-root",
+  "model": "auto",
+  "client_prepare_state": "success"
+}
+"""
+    )
+
+    assert capture.url == "https://chatgpt.com/backend-api/f/conversation"
+    assert capture.status == 200
+    assert capture.headers["authorization"] == "Bearer chrome-token"
+    assert capture.headers["openai-sentinel-chat-requirements-token"] == "req-token"
+    assert capture.cookies["oai-did"] == "device-3"
+    assert capture.request_json is not None
+    assert capture.request_json["action"] == "next"
+    assert capture.request_json["model"] == "auto"
+
+
+def test_parse_chrome_devtools_ignores_response_headers_before_request_headers():
+    capture = CapturedRequest.from_text(
+        """
+Request URL
+https://chatgpt.com/backend-api/f/conversation
+Request Method
+POST
+Status Code
+200 OK
+access-control-allow-origin
+https://chatgpt.com
+cf-ray
+a10e726a4b922721-BKK
+server
+cloudflare
+x-build
+5a883967c416-convo
+:authority
+chatgpt.com
+:method
+POST
+:path
+/backend-api/f/conversation
+:scheme
+https
+accept
+text/event-stream
+authorization
+Bearer chrome-token
+content-length
+951
+content-type
+application/json
+cookie
+oai-did=device-4; __Secure-next-auth.session-token.0=session-4
+oai-client-build-number
+7780290
+openai-sentinel-chat-requirements-token
+req-token
+openai-sentinel-proof-token
+proof-token
+x-conduit-token
+conduit-token
+x-oai-turn-trace-id
+trace-1
+x-openai-target-route
+/backend-api/f/conversation
+{"action":"next","model":"auto","client_prepare_state":"success"}
+"""
+    )
+
+    assert capture.headers["authorization"] == "Bearer chrome-token"
+    assert capture.headers["openai-sentinel-chat-requirements-token"] == "req-token"
+    assert capture.cookies["oai-did"] == "device-4"
+    assert capture.request_json == {"action": "next", "model": "auto", "client_prepare_state": "success"}
+    assert "server" not in capture.headers
+    assert "cf-ray" not in capture.headers
+    assert "x-build" not in capture.headers
+    assert "chatgpt.com" not in capture.headers
