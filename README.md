@@ -130,6 +130,26 @@ reference implementation and local bridge. Hosted production needs stronger
 auth, tenant isolation, secret vaulting, request audit, queue durability, abuse
 controls, observability, and deployment hardening.
 
+## Scope Tiers
+
+> [!IMPORTANT]
+> This repository is a working reference prototype, not a hosted production
+> service.
+
+The project intentionally mixes working infrastructure with reference apps so
+people can see the capability, run it locally, and adapt the parts they need.
+Read it in three layers:
+
+| Tier | What belongs here | How to judge it |
+| --- | --- | --- |
+| **Works now** | Local bridge, account capture, account routing, chat, streaming, image generation, image edits/composites, OCR/vision, Deep Research export, artifact downloads, Docker startup, CLI basics, operator console boot. | These are the core proof points. They should run locally and are the main reason this repo exists. |
+| **Reference only** | Bridge Console UX, Character Game UX, opencode integration, screenshots, example prompts, demo storage views, docs UI, test lab flows. | These show how the API can be used. They are not the final commercial UX and may have rough edges. |
+| **Production TODO** | Strong auth, tenant isolation, account vaulting, secret rotation, CORS policy, durable queues, storage lifecycle, audit logs, abuse controls, observability, backup/restore, deployment hardening. | Add these before turning the idea into a hosted multi-user product. They are known requirements, not forgotten work. |
+
+That framing matters because the feature list is broad. The point of the repo
+is to prove useful local capability and show realistic use cases, not to claim
+that every included surface is already a polished production SaaS product.
+
 ## What This Is
 
 `chatgpt-api` lets you run a local service that can:
@@ -240,9 +260,10 @@ automation, full-stack product prototypes, and developer infrastructure.
 ## Open Source Scope
 
 > [!NOTE]
-> The console and game are included to prove the use cases, not to claim they
-> are final commercial UI. The backend is intentionally scoped as a local bridge
-> and example product foundation.
+> This repository is a working reference prototype, not a hosted production
+> service. The console and game are included to prove the use cases, not to
+> claim they are final commercial UI. The backend is intentionally scoped as a
+> local bridge and example product foundation.
 
 This is an MIT-licensed open-source project built to make the idea usable and
 testable, not to provide a fully polished commercial product for free.
