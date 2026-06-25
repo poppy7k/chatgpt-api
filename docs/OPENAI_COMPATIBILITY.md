@@ -272,7 +272,10 @@ client runs on the same filesystem as the API server.
 ## Vision, OCR, And Image Inputs
 
 `POST /v1/chatgpt/vision` is the bridge-specific route for OCR and image
-understanding. It returns text only.
+understanding. It returns assistant text in `text` and
+`choices[0].message.content`. The content is prompt-driven: plain OCR text is
+the default, but callers can request strict JSON, line groups, approximate
+bounding boxes, translations, or image descriptions.
 
 ```sh
 curl 'http://127.0.0.1:8000/v1/chatgpt/vision' \
@@ -306,6 +309,44 @@ Response:
   ]
 }
 ```
+
+Structured OCR / bbox prompt:
+
+```sh
+curl 'http://127.0.0.1:8000/v1/chatgpt/vision' \
+  -H 'Authorization: Bearer local-dev-key' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "mode": "ocr",
+    "image": "./panel.png",
+    "prompt": "Return strict JSON only. Schema: {\"items\":[{\"text\":\"string\",\"bbox\":{\"x\":0,\"y\":0,\"w\":0,\"h\":0},\"confidence\":\"low|medium|high\"}]}. Use pixel coordinates relative to the input image. Estimate boxes when exact layout is uncertain."
+  }'
+```
+
+Example structured response. The JSON is inside the normal text fields:
+
+```json
+{
+  "id": "chatcmpl_vision",
+  "object": "chatgpt.vision",
+  "mode": "ocr",
+  "input_image_count": 1,
+  "text": "{\"items\":[{\"text\":\"FW\",\"bbox\":{\"x\":412,\"y\":390,\"w\":210,\"h\":116},\"confidence\":\"medium\"}]}",
+  "choices": [
+    {
+      "message": {
+        "role": "assistant",
+        "content": "{\"items\":[{\"text\":\"FW\",\"bbox\":{\"x\":412,\"y\":390,\"w\":210,\"h\":116},\"confidence\":\"medium\"}]}"
+      }
+    }
+  ]
+}
+```
+
+Bounding boxes are model-estimated, not native OCR-engine layout coordinates.
+They are useful for prototypes and lightweight overlays, but apps that require
+high-precision OCR/layout should pair this route with a dedicated OCR engine and
+use ChatGPT for cleanup, grouping, translation, or interpretation.
 
 Accepted image references:
 

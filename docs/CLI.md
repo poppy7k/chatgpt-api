@@ -271,6 +271,19 @@ chatgpt-api vision \
   --prompt "Extract visible letters only"
 ```
 
+Structured OCR with approximate bounding boxes:
+
+```sh
+chatgpt-api vision \
+  --mode ocr \
+  --input-image ./panel.png \
+  --prompt 'Return strict JSON only. Schema: {"items":[{"text":"string","bbox":{"x":0,"y":0,"w":0,"h":0},"confidence":"low|medium|high"}]}. Use pixel coordinates relative to the input image. Estimate boxes when exact layout is uncertain.'
+```
+
+The CLI prints the model response. If you ask for JSON, parse stdout as model
+JSON, but remember that boxes are estimated by ChatGPT rather than returned from
+a native OCR layout engine.
+
 Image edit with one source image:
 
 ```sh

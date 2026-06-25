@@ -725,7 +725,10 @@ output canvas can change size and object positions can shift.
 
 ## Vision And OCR
 
-`POST /v1/chatgpt/vision` returns text. It does not create an artifact file.
+`POST /v1/chatgpt/vision` returns assistant text. By default OCR returns plain
+text, but the route is prompt-driven: you can ask for markdown, strict JSON,
+line blocks, approximate bounding boxes, translation pairs, or any other shape
+your app wants to parse. It does not create an artifact file.
 
 ```sh
 curl 'http://127.0.0.1:8000/v1/chatgpt/vision' \
@@ -736,8 +739,28 @@ curl 'http://127.0.0.1:8000/v1/chatgpt/vision' \
     "mode": "ocr",
     "image": "./favicon.png",
     "prompt": "Extract the visible letters only."
+}'
+```
+
+Structured OCR with approximate boxes:
+
+```sh
+curl 'http://127.0.0.1:8000/v1/chatgpt/vision' \
+  -X POST \
+  -H 'Authorization: Bearer local-dev-key' \
+  -H 'Content-Type: application/json' \
+  --data-raw '{
+    "mode": "ocr",
+    "image": "./panel.png",
+    "prompt": "Return strict JSON only. Schema: {\"items\":[{\"text\":\"string\",\"bbox\":{\"x\":0,\"y\":0,\"w\":0,\"h\":0},\"confidence\":\"low|medium|high\"}]}. Use pixel coordinates relative to the input image. If exact boxes are uncertain, estimate them and set confidence accordingly."
   }'
 ```
+
+Important: bbox output is model-estimated. This is useful for prototypes,
+caption placement, manga/manhwa panel tooling, and lightweight UI overlays, but
+it is not the same as a dedicated OCR engine with native layout detection. For
+production-grade document OCR, use a real OCR/layout engine and optionally ask
+ChatGPT to clean, translate, group, or interpret the result.
 
 Accepted image inputs:
 

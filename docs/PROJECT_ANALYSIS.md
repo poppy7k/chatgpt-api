@@ -465,9 +465,15 @@ Input:
 
 Output:
 
-- text response
+- text response by default
+- prompt-shaped structured output, such as strict JSON or estimated bbox items,
+  when the caller provides a schema in the prompt
 - no file artifact unless the caller asks a separate image route to generate
   one
+
+Bounding boxes are model-estimated rather than native OCR engine coordinates.
+Use them for prototypes and overlays, or pair the route with a dedicated OCR
+engine when exact layout precision matters.
 
 Vision and image edit share the same upload concurrency limiter.
 
