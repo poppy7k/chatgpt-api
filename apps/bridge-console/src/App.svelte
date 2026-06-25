@@ -301,7 +301,7 @@
           recommended:
             "Use ocr for text extraction, describe for image understanding, and custom for app-specific analysis.",
           gotcha:
-            "This returns text only. Use /v1/images/edits when you expect an image artifact.",
+            "The route returns assistant text fields. That text can be plain OCR, markdown, or strict JSON/bbox if your prompt requests it. Use /v1/images/edits when you expect an image artifact.",
         },
         {
           name: "prompt",
@@ -310,9 +310,9 @@
           meaning:
             "Question or extraction instruction sent with the uploaded images.",
           recommended:
-            "Tell ChatGPT what format to return, such as JSON, markdown, or plain text.",
+            "Tell ChatGPT what format to return, such as plain text, markdown, strict JSON, or an items[] schema with estimated bbox coordinates.",
           gotcha:
-            "The bridge does not interpret OCR text for you; your app owns parsing and validation.",
+            "The bridge does not validate OCR JSON for you. Bbox coordinates are model-estimated, not native OCR-engine layout coordinates.",
         },
         {
           name: "image / images / input_images",
@@ -452,7 +452,7 @@
       name: "text",
       where: "vision / OCR",
       meaning:
-        "Convenience field containing the same text as choices[0].message.content.",
+        "Convenience field containing the same assistant output as choices[0].message.content. It can be plain OCR text, markdown, or a JSON string if your prompt requested structured OCR/bbox.",
     },
     {
       name: "input_image_count",
@@ -1823,7 +1823,7 @@
       },
       {
         title: "Vision/OCR response",
-        body: "Vision returns text only. Use this for OCR, image description, and app-specific image analysis.",
+        body: "Vision returns assistant text in text and choices[0].message.content. Ask for plain OCR, markdown, or strict JSON with estimated bbox coordinates in the prompt.",
         code: JSON.stringify(
           {
             id: "chatcmpl_vision_example",
@@ -1832,15 +1832,32 @@
             chatgpt_account: "pro",
             mode: "ocr",
             input_image_count: 1,
-            text: "FW",
+            text: JSON.stringify({
+              items: [
+                {
+                  text: "FW",
+                  bbox: { x: 412, y: 390, w: 210, h: 116 },
+                  confidence: "medium",
+                },
+              ],
+            }),
             choices: [
               {
                 message: {
                   role: "assistant",
-                  content: "FW",
+                  content: JSON.stringify({
+                    items: [
+                      {
+                        text: "FW",
+                        bbox: { x: 412, y: 390, w: 210, h: 116 },
+                        confidence: "medium",
+                      },
+                    ],
+                  }),
                 },
               },
             ],
+            note: "Bbox values are model-estimated. Use a dedicated OCR/layout engine when exact coordinates matter.",
           },
           null,
           2,
@@ -1983,7 +2000,7 @@
       {
         route: "POST /v1/chatgpt/vision",
         kind: "OCR / image understanding",
-        read: "text or choices[0].message.content",
+        read: "text or choices[0].message.content; can be plain text or prompt-shaped JSON",
         files: "none; source images are temporary request inputs",
         operation: "Uses upload + chat concurrency buckets",
         response: {
@@ -1993,12 +2010,12 @@
           chatgpt_account: "pro",
           mode: "describe",
           input_image_count: 1,
-          text: "A square app icon with stylized letters.",
+          text: "A square app icon with stylized letters. For OCR bbox mode, ask for strict JSON in the prompt.",
           choices: [
             {
               message: {
                 role: "assistant",
-                content: "A square app icon with stylized letters.",
+                content: "A square app icon with stylized letters. For OCR bbox mode, ask for strict JSON in the prompt.",
               },
             },
           ],
@@ -2452,9 +2469,9 @@
         route: "POST /v1/chatgpt/vision · POST /v1/images/edits",
         model: "auto for OCR/describe, gpt-image-1 for edits",
         output:
-          "Vision returns text; edits save one image into " +
+          "Vision returns assistant text or prompt-shaped JSON; edits save one image into " +
           String(storage.image_output_dir ?? imageOutputDir),
-        note: "Up to 10 source images per request. Editing/compositing returns exactly one final image.",
+        note: "Up to 10 source images per request. OCR bbox JSON is model-estimated; editing/compositing returns exactly one final image.",
       },
       {
         id: "image",
@@ -3716,8 +3733,8 @@
                 <div class="font-black text-slate-100">Vision + Edit</div>
                 <p class="mt-2 text-sm text-slate-400">
                   Routes: `POST /v1/chatgpt/vision` and `POST
-                  /v1/images/edits`. Up to 10 input images; edits return one
-                  image.
+                  /v1/images/edits`. Vision can return plain OCR text or
+                  prompt-shaped JSON/bbox; edits return one image.
                 </p>
               </div>
               <div class="rounded-2xl border border-white/10 bg-black/20 p-4">
