@@ -17,6 +17,15 @@ chatgpt-api menu
 chatgpt-api
 ```
 
+If `chatgpt-api` is not found, use the equivalent module entrypoint:
+
+```sh
+python3 -m chatgpt_api doctor
+python3 -m chatgpt_api doctor --json
+python3 -m chatgpt_api menu
+python3 -m chatgpt_api
+```
+
 `doctor` checks Python version, local account capture profiles, Docker files,
 `/health`, and `/v1/models`.
 

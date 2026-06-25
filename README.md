@@ -132,6 +132,15 @@ chatgpt-api doctor
 chatgpt-api server start --interactive
 ```
 
+If `chatgpt-api` is not found after install, Python installed the console
+script outside your shell `PATH`. Use the module form, which works from the
+repo after install:
+
+```sh
+python3 -m chatgpt_api doctor
+python3 -m chatgpt_api server start --interactive
+```
+
 Or use explicit flags:
 
 ```sh
@@ -822,6 +831,10 @@ Full guide: [integrations/opencode/README.md](integrations/opencode/README.md)
 
 ## CLI Cheat Sheet
 
+Every `chatgpt-api ...` command can also be run as
+`python3 -m chatgpt_api ...` if your Python scripts directory is not on
+`PATH`.
+
 Interactive menu:
 
 ```sh
@@ -868,6 +881,24 @@ chatgpt-api image \
   --prompt "small blue app icon, no text" \
   --out ./icon.png
 ```
+
+## Troubleshooting
+
+### `chatgpt-api: command not found`
+
+The package may be installed correctly while the generated script is outside
+your shell `PATH`. `pip` prints the install directory when this happens. On
+macOS framework Python it can be similar to
+`/Library/Frameworks/Python.framework/Versions/3.13/bin`.
+
+Use the module fallback:
+
+```sh
+python3 -m chatgpt_api doctor
+python3 -m chatgpt_api server start --interactive
+```
+
+Or add the scripts directory printed by `pip` to your shell `PATH`.
 
 Direct OCR:
 
